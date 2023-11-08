@@ -48,6 +48,7 @@ test('all in one', async () => {
   let R = request(userApp.express)
 
   const expectedEvents = []
+  let ivanId
 
   //test post
   let response = await R.post('/').send({ name: 'Vanya' })
@@ -60,6 +61,7 @@ test('all in one', async () => {
   expect(response.statusCode).toBe(200)
   expect(response.body).toMatchObject({ id: response.body.id, name: 'Ivan' })
   expectedEvents.push({ kind: 'updated', fields: { name: 'Ivan' } })
+  ivanId = response.body.id
 
   // //add some more
   for (const name of ['Pit', 'Vasya', 'Greg']) {
@@ -88,6 +90,22 @@ test('all in one', async () => {
   response = await R.get(`/`)
   expect(response.statusCode).toBe(200)
   expect(response.body).toMatchObject(expectedEvents)
+
+  response = await R.get(`/?perPage=2&page=1`)
+  expect(response.statusCode).toBe(200)
+  expect(response.body).toMatchObject(expectedEvents.slice(0, 2))
+
+  response = await R.get(`/?perPage=3&page=2`)
+  console.log(response)
+  expect(response.statusCode).toBe(200)
+  expect(response.body).toMatchObject(expectedEvents.slice(3, 6))
+
+  response = await R.get(`/?userIds=${ivanId}`)
+  expect(response.statusCode).toBe(200)
+  expect(response.body).toMatchObject([
+    { kind: 'created', fields: { name: 'Vanya' } },
+    { kind: 'updated', fields: { name: 'Ivan' } },
+  ])
 })
 
 afterAll(async () => {
