@@ -1,0 +1,27 @@
+{
+  "name": "users-store",
+  "version": "1.0.0",
+  "description": "",
+  "workspaces": [
+    "./packages/*"
+  ],
+  "scripts": {
+    "start:user": "npm run -w @users-store/user-service start",
+    "start:history": "npm run -w @users-store/history-service start",
+    "seed": "npm run -w @users-store/bin seed",
+    "db:reset": "./manage db-reset",
+    "db:create-tables": "./manage db-create-tables",
+    "db:reset-test": "./manage db-reset test",
+    "db:create-tables-test": "./manage db-create-tables test",
+    "test": "npm run db:reset-test && npm run db:create-tables-test && jest --detectOpenHandles"
+  },
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "@types/jest": "^29.5.7",
+    "jest": "^29.7.0",
+    "jest-extended": "^4.0.2",
+    "nodemon": "^3.0.1",
+    "supertest": "^6.3.3"
+  }
+}

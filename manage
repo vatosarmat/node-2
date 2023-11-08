@@ -1,0 +1,83 @@
+#!/bin/bash
+set -e
+pushd "$(dirname "$(realpath "${BASH_SOURCE[0]}")")" || exit 1
+
+declare -r cmd="${1}"
+
+function dotenv__read {
+  local file="$1"
+  local var_name="$2"
+  grep "^$var_name" < "$file" | cut -d'=' -f2 | head -1
+}
+
+function set-db-vars {
+  local file
+  if [[ "$1" = "test" ]]; then
+    file="env/test_db.env"
+  else
+    file="env/dev_db.env"
+  fi
+
+  PGDATABASE="$(dotenv__read "$file" PGDATABASE)"
+  PGUSER="$(dotenv__read "$file" PGUSER)"
+  PGPASSWORD="$(dotenv__read "$file" PGPASSWORD)"
+}
+
+case "$cmd" in
+  env-setup)
+    cat - env/dev_db.env > packages/user-service/.env << 'ENV'
+NODE_ENV=development
+PORT=9023
+ENV
+
+    cat - env/dev_db.env > packages/history-service/.env << 'ENV'
+NODE_ENV=development
+PORT=9024
+ENV
+
+    cat - > packages/bin/.env << 'ENV'
+NODE_ENV=development
+USER_PORT=9023
+HISTORY_PORT=9024
+ENV
+
+    cat - env/test_db.env > __tests__/.env << 'ENV'
+NODE_ENV=test
+USER_PORT=9023
+HISTORY_PORT=9024
+ENV
+
+    ;;
+  db-reset)
+    shift
+    set-db-vars "$@"
+
+    psql << SQL
+    DROP DATABASE IF EXISTS "$PGDATABASE";
+    DROP OWNED BY "$PGUSER" CASCADE;
+    DROP ROLE IF EXISTS "$PGUSER";
+
+    CREATE ROLE "$PGUSER" WITH ENCRYPTED PASSWORD '$PGPASSWORD' LOGIN;
+    CREATE DATABASE "$PGDATABASE" WITH OWNER "$PGUSER";
+SQL
+
+    ;;
+  db-create-tables)
+    shift
+    set-db-vars "$@"
+
+    psql "$PGDATABASE" << SQL
+    BEGIN;
+    $(cat create-tables.sql)
+    GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO "$PGUSER";
+    GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO "$PGUSER";
+    COMMIT;
+SQL
+    ;;
+  *)
+    echo "Invalid cmd" >&2
+    exit 1
+    ;;
+esac
+
+popd || true
